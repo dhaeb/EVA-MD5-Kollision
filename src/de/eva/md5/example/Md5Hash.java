@@ -63,4 +63,10 @@ public class Md5Hash {
 		return byteContent;
 	}
 	
+	@Override
+	public String toString() {
+		ByteBuffer bb = ByteBuffer.wrap(getByteContent());
+		return String.format("Md5Hash Instance: LongPart1: %d , LongPart2: %d", bb.getLong(0), bb.getLong(8));
+	}
+	
 }
