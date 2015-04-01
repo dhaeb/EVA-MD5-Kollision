@@ -1,7 +1,8 @@
 package de.eva.md5.example;
 
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -22,34 +23,37 @@ public class Md5KollisionFinder implements Callable<Integer>{
 
 	public Integer findCollision(Md5Hash searchable, int lowerBound, int upperBound) throws NoSuchAlgorithmException{
 		Md5Calculator md5Calculator = new Md5Calculator();
-		for(int i = lowerBound; i <= upperBound; i++){
+		for(int i = lowerBound; i <= upperBound && !Thread.currentThread().isInterrupted(); i++){
 			Md5Hash hash = md5Calculator.getHash(i);
 			if(hash.equals(searchable)){
 				return i;
 			}
 		}
-		throw new NoSuchElementException();
+		throw new NoSuchElementException(String.format("no element between %d and %d", from, to));
 	}
 	
 	public static void main(String[] args) throws NoSuchAlgorithmException, InterruptedException, ExecutionException {
-		 ExecutorService threadPool = Executors.newFixedThreadPool(16);
-		 Md5Hash searchable = new Md5Hash(5103841542109130789L, 33046678707426369L);
-		 Integer invokeAny;
+		 int countTheads = 16;
+		ExecutorService threadPool = Executors.newFixedThreadPool(countTheads);
+		 Md5Hash searchable = new Md5Hash(	8248337957008271949L, 7217552169022328908L);
+		 Integer result;
 		 try {
-			invokeAny = threadPool.invokeAny(Arrays.asList(new Md5KollisionFinder[]{
-					 new Md5KollisionFinder(0, 5000, searchable),
-					 new Md5KollisionFinder(5001, 10000, searchable),
-			 }));
-			System.out.println("found hash: " + invokeAny);
+			 int fractionProThread = Integer.MAX_VALUE / countTheads;
+			 List<Md5KollisionFinder> finders = new ArrayList<Md5KollisionFinder>();
+			 for(int i = 0; i < countTheads; i++){
+				 finders.add(new Md5KollisionFinder(i * fractionProThread, (i+1) * fractionProThread, searchable));
+			 }
+			result = threadPool.invokeAny(finders);
+			System.out.println("found hash: " + result);
 		} catch (ExecutionException e) {
 			System.out.println("no collision could be detected!");
 		} 
-		 threadPool.shutdown();
-		 threadPool.awaitTermination(10, TimeUnit.SECONDS);
+		 threadPool.shutdownNow();
+		 threadPool.awaitTermination(10, TimeUnit.MINUTES);
 	}
 
 	@Override
-	public Integer call() throws Exception {
+	public Integer call() throws NoSuchAlgorithmException {
 		return findCollision(searchable, from, to);
 	}
 }
